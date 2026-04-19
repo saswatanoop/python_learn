@@ -102,3 +102,37 @@ class TicketBookingFineGrained:
                 self._seat_owners[seat1] = visitor2
                 self._seat_owners[seat2] = visitor1
                 return True
+            
+# Minor Project: thread-safe in-memory cache with a size limit
+class MemCache:
+    
+    def __init__(self, size = 100)->None:
+        self._max_size=size
+        self._cache={}
+        self._lock=threading.Lock()
+        
+    def get(self,key):
+        with self._lock:
+            return self._cache.get(key)
+    
+    def put(self,key,value):
+        ''' 
+            Fine-grained locking makes sense when operations on independent keys don't interfere. 
+            But put checks the global size, which is shared across all keys. 
+            So even with per-key locks, you'd still need a global lock to protect the size check
+        '''
+        with self._lock:
+            if key in self._cache:
+                self._cache[key]=value
+            else:
+                if len(self._cache)==self._max_size: # Can not add more
+                    return False
+                self._cache[key]=value
+        return True
+
+    def delete(self,key):
+        with self._lock:
+            if key in self._cache:
+                self._cache.pop(key)
+                return True
+        return False
