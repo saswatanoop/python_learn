@@ -4,6 +4,10 @@
     - Simple but can cause contention   
     - Special case: 
     1.1 Reader-Writer Lock (multiple readers, single writer)
+    
+2. Fine-Grained Locking:
+    - One lock per resource instead of one lock for everything. Threads only block when competing for the same resource
+    - More complex but can improve performance by reducing contention
 '''
 
 # 1. Coarse-Grained Locking Example
@@ -15,12 +19,12 @@ class BookTicket:
         self.tickets={}
         self._lock=threading.Lock()
     
-    def add_new_ticket(self,key,val):
+    def add_new_ticket(self,key,val)-> None:
         with self._lock:
             if key not in self.tickets:
                 self.tickets[key]=val
     
-    def get_ticket_owner(self,key):
+    def get_ticket_owner(self,key)-> str|None:
         with self._lock:
             if key in self.tickets:
                 return self.tickets[key]
@@ -58,5 +62,43 @@ class Cache:
     def set_value(self,key,value):
         with self._lock:
             self._cache[key]=value
-        
-                
+
+# 2. Fine-Grained Locking Example
+
+class TicketBookingFineGrained:
+    def __init__(self):
+        self._locks_lock = threading.Lock()
+        self._seat_locks = {}
+        self._seat_owners = {}
+
+    def _get_lock(self, seat_id: str) -> threading.Lock:
+        # protect the lock map itself
+        with self._locks_lock:
+            if seat_id not in self._seat_locks:
+                self._seat_locks[seat_id] = threading.Lock()
+            return self._seat_locks[seat_id]
+
+    def book_seat(self, seat_id: str, visitor_id: str) -> bool:
+        with self._get_lock(seat_id):
+            if seat_id in self._seat_owners:
+                return False
+            self._seat_owners[seat_id] = visitor_id
+            return True
+    
+    def swap_seats(self, visitor1: str, seat1: str,
+                   visitor2: str, seat2: str) -> bool:
+        # Always acquire locks in consistent order to prevent deadlock
+        first = seat1 if seat1 < seat2 else seat2
+        second = seat2 if seat1 < seat2 else seat1
+
+        with self._get_lock(first):
+            with self._get_lock(second):
+                # validate ownership
+                if self._seat_owners.get(seat1) != visitor1:
+                    return False
+                if self._seat_owners.get(seat2) != visitor2:
+                    return False
+                # actual swap
+                self._seat_owners[seat1] = visitor2
+                self._seat_owners[seat2] = visitor1
+                return True
