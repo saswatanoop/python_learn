@@ -67,9 +67,9 @@ class Cache:
 
 class TicketBookingFineGrained:
     def __init__(self):
-        self._locks_lock = threading.Lock()
-        self._seat_locks = {}
-        self._seat_owners = {}
+        self._locks_lock = threading.Lock() #Acquire this lock before accessing the lock map
+        self._seat_locks = {} # Map of seat_id to its lock
+        self._seat_owners = {} # Map of seat_id to visitor_id who booked it
 
     def _get_lock(self, seat_id: str) -> threading.Lock:
         # protect the lock map itself
